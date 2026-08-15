@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101418">
+<title>Field tools — Timemachine</title>
+<style>
+  :root{--ink:#0d1117;--line:#c9d1d9;--dim:#57606a;--tint:#f3f6fa;--band:#101418;
+    --ok:#0f6e56;--bad:#8b1e1e}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#fff;color:var(--ink);
+    font:400 17px/1.45 system-ui,-apple-system,sans-serif}
+  header{background:var(--band);color:#fff;padding:16px}
+  header h1{margin:0;font-size:17px;font-weight:500}
+  header p{margin:3px 0 0;font-size:13px;opacity:.7}
+  main{padding:16px;max-width:620px;margin:0 auto}
+  a.card{display:block;text-decoration:none;color:inherit;border:1px solid var(--line);
+    border-radius:10px;padding:16px;margin-bottom:14px}
+  a.card h2{margin:0 0 4px;font-size:18px;font-weight:500}
+  a.card p{margin:0;font-size:15px;color:var(--dim)}
+  .tag{display:inline-block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    padding:2px 9px;border-radius:999px;background:var(--tint);color:var(--dim);
+    margin-bottom:8px}
+  .tag.use{background:#e1f5ee;color:var(--ok)}
+  .status{border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:16px;
+    font-size:15px}
+  .status b{display:block;margin-bottom:4px}
+  .ok{color:var(--ok)} .bad{color:var(--bad)}
+  ul{margin:8px 0 0;padding-left:20px;font-size:15px;color:var(--dim)}
+  li{margin-bottom:5px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Field tools</h1>
+  <p>Khongjom survey — Timemachine WebAR</p>
+</header>
+<main>
+
+  <div class="status">
+    <b>Device check</b>
+    <div id="sec">Checking secure context…</div>
+    <div id="geo">Checking location access…</div>
+  </div>
+
+  <a class="card" href="field-recorder.html">
+    <span class="tag use">Use this one</span>
+    <h2>Field recorder</h2>
+    <p>Zone coordinates from GPS Test, anchor and offset records from Scaniverse,
+       and the live walk test. Exports straight into waypoints.js.</p>
+  </a>
+
+  <a class="card" href="geofence-surveyor.html">
+    <span class="tag">Superseded</span>
+    <h2>Geofence surveyor</h2>
+    <p>Captures coordinates by averaging browser GPS samples. Only needed if you
+       stop using GPS Test for the averaging step.</p>
+  </a>
+
+  <div class="status">
+    <b>Before you leave for the site</b>
+    <ul>
+      <li>Open both tools once here, on the actual survey phone, over this HTTPS URL.</li>
+      <li>Grant location permission now, not in the field.</li>
+      <li>Confirm the device check above is green on both lines.</li>
+      <li>Note this URL on paper. Signal at the memorial may not load it fresh.</li>
+    </ul>
+  </div>
+
+<script>
+  const sec = document.getElementById('sec')
+  const geo = document.getElementById('geo')
+  if (window.isSecureContext) {
+    sec.innerHTML = '<span class="ok">✓ Secure context — location will work.</span>'
+  } else {
+    sec.innerHTML = '<span class="bad">✗ Not a secure context. Open over https:// or the tools cannot read GPS.</span>'
+  }
+  if ('geolocation' in navigator) {
+    navigator.geolocation.getCurrentPosition(
+      p => geo.innerHTML = '<span class="ok">✓ Location granted — ±' +
+             p.coords.accuracy.toFixed(0) + ' m right now.</span>',
+      e => geo.innerHTML = '<span class="bad">✗ Location blocked: ' + e.message +
+             '. Allow it in browser settings before travelling.</span>',
+      { enableHighAccuracy: true, timeout: 15000 })
+  } else {
+    geo.innerHTML = '<span class="bad">✗ No geolocation API in this browser.</span>'
+  }
+</script>
+</main>
+</body>
+</html>

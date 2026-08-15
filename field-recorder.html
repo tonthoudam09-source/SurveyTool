@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101418">
+<title>Field recorder — Timemachine</title>
+<style>
+  :root{--ink:#0d1117;--paper:#fff;--line:#c9d1d9;--dim:#57606a;
+    --ok:#0f6e56;--warn:#9a6200;--bad:#8b1e1e;--band:#101418;--tint:#f3f6fa}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--paper);color:var(--ink);
+    font:400 17px/1.45 system-ui,-apple-system,sans-serif}
+  body{padding-bottom:48px}
+  header{background:var(--band);color:#fff;padding:13px 16px}
+  header h1{margin:0;font-size:16px;font-weight:500}
+  header p{margin:2px 0 0;font-size:13px;opacity:.7}
+  nav{display:flex;background:var(--band);border-top:1px solid #2a3038}
+  nav button{flex:1;background:none;border:0;color:#8b949e;padding:12px 4px;
+    font:500 14px system-ui;border-bottom:3px solid transparent}
+  nav button[aria-selected=true]{color:#fff;border-bottom-color:#fff}
+  main{padding:16px;max-width:660px;margin:0 auto}
+  .pane[hidden]{display:none}
+  section{border:1px solid var(--line);border-radius:10px;padding:14px;margin:0 0 16px}
+  h2{margin:0 0 4px;font-size:14px;font-weight:500;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--dim)}
+  .sub{font-size:14px;color:var(--dim);margin:0 0 12px}
+  label{display:block;margin:12px 0 0}
+  label span{display:block;font-size:13px;color:var(--dim);margin-bottom:4px}
+  input,select,textarea{font:400 17px system-ui;padding:12px;border:1px solid var(--line);
+    border-radius:8px;width:100%;background:#fff;color:var(--ink)}
+  textarea{font:400 16px/1.4 ui-monospace,Menlo,monospace;resize:vertical}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  button.act{font:500 17px system-ui;padding:15px;border-radius:10px;
+    border:1px solid var(--ink);background:var(--ink);color:#fff;width:100%;margin-top:14px}
+  button.sec{background:#fff;color:var(--ink)}
+  button.act:disabled{opacity:.4}
+  .msg{padding:11px 13px;border-radius:8px;font-size:15px;margin-top:12px;display:none}
+  .msg.show{display:block}
+  .msg.ok{background:#e1f5ee;color:var(--ok)}
+  .msg.warn{background:#faeeda;color:var(--warn)}
+  .msg.bad{background:#fcebeb;color:var(--bad)}
+  .live{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;
+    background:var(--tint);border-radius:8px;padding:11px 13px;margin-bottom:12px}
+  .live b{font:500 20px/1 ui-monospace,Menlo,monospace}
+  .live small{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+  table{width:100%;border-collapse:collapse;font-size:15px}
+  th,td{text-align:left;padding:9px 5px;border-bottom:1px solid var(--line)}
+  th{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+  .in{color:var(--ok);font-weight:500}.out{color:var(--dim)}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:13px;
+    background:var(--tint);color:var(--dim);margin-left:6px}
+  .pill.done{background:#e1f5ee;color:var(--ok)}
+  .hint{font-size:14px;color:var(--dim);margin:8px 0 0}
+  code{background:var(--tint);padding:1px 5px;border-radius:4px;font-size:14px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Field recorder</h1>
+  <p>Khongjom — zone, anchor and verification</p>
+</header>
+<nav role="tablist">
+  <button role="tab" aria-selected="true" data-p="zone">Zone</button>
+  <button role="tab" aria-selected="false" data-p="anchor">Anchor</button>
+  <button role="tab" aria-selected="false" data-p="verify">Verify</button>
+</nav>
+
+<main>
+
+<!-- ============ ZONE ============ -->
+<div class="pane" id="p-zone">
+  <section>
+    <h2>Coordinates from GPS Test</h2>
+    <p class="sub">Let the reading settle in GPS Test, then copy or type it here.
+      Decimal degrees, DMS and degrees-decimal-minutes are all accepted.</p>
+
+    <div class="live">
+      <div><small>Phone here</small><br><b id="hereLat">—</b></div>
+      <div><small>&nbsp;</small><br><b id="hereLng">—</b></div>
+      <div><small>Accuracy</small><br><b id="hereAcc">—</b></div>
+    </div>
+
+    <label><span>Waypoint id</span><input id="zid" value="W-01" autocapitalize="characters"></label>
+    <label><span>Station name</span><input id="zname" placeholder="Memorial entrance"></label>
+    <label><span>Paste coordinates</span>
+      <textarea id="zpaste" rows="2" placeholder="24.500123, 94.001234
+or 24° 30' 0.44&quot; N 94° 0' 4.44&quot; E"></textarea></label>
+
+    <div class="grid2">
+      <label><span>Latitude (decimal)</span><input id="zlat" class="mono" inputmode="decimal"></label>
+      <label><span>Longitude (decimal)</span><input id="zlng" class="mono" inputmode="decimal"></label>
+    </div>
+    <div class="grid2">
+      <label><span>Zone radius (m)</span><input id="zrad" type="number" value="30" min="5" max="200"></label>
+      <label><span>Best accuracy seen (m)</span><input id="zacc" type="number" value="5" min="1" max="50"></label>
+    </div>
+
+    <div class="msg" id="zmsg"></div>
+    <button class="act sec" id="zuse">Use phone position instead</button>
+    <button class="act" id="zsave">Save zone</button>
+  </section>
+</div>
+
+<!-- ============ ANCHOR ============ -->
+<div class="pane" id="p-anchor" hidden>
+  <section>
+    <h2>Anchor record</h2>
+    <p class="sub">The image target is what locks content. Scaniverse supplies the
+      geometry that tells you where your model sits relative to that target.</p>
+
+    <label><span>Waypoint id</span><select id="aid"></select></label>
+    <label><span>Image target name</span><input id="aname" class="mono" placeholder="w01_entrance_plaque"></label>
+
+    <div class="grid2">
+      <label><span>Target shape</span><select id="ashape">
+        <option value="flat">flat</option><option value="cylindrical">cylindrical</option>
+        <option value="conical">conical</option></select></label>
+      <label><span>Fabricated panel?</span><select id="afab">
+        <option value="false">no — natural feature</option>
+        <option value="true">yes — needs panel</option></select></label>
+    </div>
+
+    <div class="grid2">
+      <label><span>Measured width (mm)</span><input id="aw" type="number" class="mono" inputmode="numeric"></label>
+      <label><span>Measured height (mm)</span><input id="ah" type="number" class="mono" inputmode="numeric"></label>
+    </div>
+    <p class="hint">Tape measure, not estimate. These two numbers scale every asset placed on this target.</p>
+
+    <label><span>Scaniverse scan id / name</span><input id="ascan" placeholder="khongjom-w01-pillars"></label>
+
+    <h2 style="margin-top:18px">Model offset from target</h2>
+    <p class="sub">Where the model origin sits relative to the centre of the image
+      target, in metres, as the visitor faces it. X right, Y up, Z toward the viewer.
+      Read these off the Scaniverse mesh in Blender, or pace them on site.</p>
+    <div class="grid3">
+      <label><span>dX (m)</span><input id="ax" type="number" step="0.01" class="mono" value="0"></label>
+      <label><span>dY (m)</span><input id="ay" type="number" step="0.01" class="mono" value="0"></label>
+      <label><span>dZ (m)</span><input id="az" type="number" step="0.01" class="mono" value="0"></label>
+    </div>
+    <label><span>Yaw (degrees, + clockwise from target normal)</span>
+      <input id="ayaw" type="number" step="0.5" class="mono" value="0"></label>
+
+    <div class="grid2">
+      <label><span>Surface finish</span><select id="afin">
+        <option>matte</option><option>semi-gloss</option><option>glossy — risky</option></select></label>
+      <label><span>Repetitive pattern?</span><select id="arep">
+        <option value="false">no</option><option value="true">yes — risky</option></select></label>
+    </div>
+    <label><span>Photo refs (morning / midday)</span><input id="aphoto" class="mono" placeholder="W-01_am.jpg / W-01_noon.jpg"></label>
+    <label><span>Notes</span><textarea id="anotes" rows="2"></textarea></label>
+
+    <div class="msg" id="amsg"></div>
+    <button class="act" id="asave">Save anchor</button>
+  </section>
+</div>
+
+<!-- ============ VERIFY ============ -->
+<div class="pane" id="p-verify" hidden>
+  <section>
+    <h2>Walk test</h2>
+    <p class="sub">Walk the site with this open. Each station should read
+      <span class="in">inside</span> only where its content should load, and flip
+      cleanly rather than flickering at the boundary.</p>
+    <div class="live">
+      <div><small>Accuracy</small><br><b id="vacc">—</b></div>
+      <div><small>Inside now</small><br><b id="vin">—</b></div>
+    </div>
+    <table><thead><tr><th>Station</th><th>Dist</th><th>Radius</th><th>State</th><th>Rec</th></tr></thead>
+    <tbody id="vtb"></tbody></table>
+    <p class="hint" id="vnone">No stations saved yet.</p>
+  </section>
+  <section>
+    <h2>Export</h2>
+    <p class="sub">Exports on every save as well, so a stray reload costs nothing.</p>
+    <button class="act sec" id="expjson">Download JSON</button>
+    <button class="act sec" id="expjs">Download waypoints.js block</button>
+  </section>
+</div>
+
+</main>
+<script>
+const $=id=>document.getElementById(id)
+const R=6371000, toRad=d=>d*Math.PI/180
+const hav=(a,b)=>{const dLa=toRad(b.lat-a.lat),dLo=toRad(b.lng-a.lng)
+  const h=Math.sin(dLa/2)**2+Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLo/2)**2
+  return 2*R*Math.asin(Math.sqrt(h))}
+
+// Manipur bounding box. Catches the classic lat/lng swap and stray digits.
+const BOX={latMin:23.8,latMax:25.7,lngMin:92.9,lngMax:94.8}
+
+let fix=null, book={}   // book[id] = {zone:{}, anchor:{}}
+
+/* ---------- coordinate parsing ---------- */
+// Accepts: "24.500123, 94.001234"
+//          "24° 30' 0.44\" N, 94° 0' 4.44\" E"
+//          "24 30.0074 N 94 0.0740 E"
+function parsePair(text){
+  if(!text) return null
+  const t=text.replace(/\s+/g,' ').trim()
+  const dd=t.match(/^(-?\d+\.\d+)\s*[, ]\s*(-?\d+\.\d+)$/)
+  if(dd) return {lat:+dd[1], lng:+dd[2]}
+  const parts=t.split(/(?<=[NSns])\s*[, ]\s*|(?<=\d)\s*,\s*(?=\d)/).filter(Boolean)
+  if(parts.length===2){
+    const a=parseOne(parts[0]), b=parseOne(parts[1])
+    if(a!==null&&b!==null) return {lat:a, lng:b}
+  }
+  const nums=t.match(/-?\d+(\.\d+)?/g)
+  if(nums&&nums.length===6){
+    const h=t.match(/[NSEWnsew]/g)||[]
+    return {lat:dms(+nums[0],+nums[1],+nums[2],h[0]), lng:dms(+nums[3],+nums[4],+nums[5],h[1])}
+  }
+  return null
+}
+function parseOne(s){
+  const h=(s.match(/[NSEWnsew]/)||[''])[0]
+  const n=s.match(/-?\d+(\.\d+)?/g)
+  if(!n) return null
+  if(n.length===1) return sign(+n[0],h)
+  if(n.length===2) return dms(+n[0],+n[1],0,h)
+  return dms(+n[0],+n[1],+n[2],h)
+}
+const sign=(v,h)=>/[SWsw]/.test(h)?-Math.abs(v):v
+const dms=(d,m,s,h)=>sign(Math.abs(d)+ (m||0)/60 + (s||0)/3600, h) * (d<0?-1:1)
+
+function decimals(v){const m=String(v).split('.')[1];return m?m.length:0}
+
+/* ---------- validation ---------- */
+function checkCoords(lat,lng){
+  const out=[]
+  if(!isFinite(lat)||!isFinite(lng)) return ['Could not read a coordinate pair.']
+  if(lat>=BOX.lngMin&&lat<=BOX.lngMax&&lng>=BOX.latMin&&lng<=BOX.latMax&&
+     !(lat>=BOX.latMin&&lat<=BOX.latMax))
+    out.push('Latitude and longitude look swapped.')
+  if(lat<BOX.latMin||lat>BOX.latMax||lng<BOX.lngMin||lng>BOX.lngMax)
+    out.push('Outside Manipur — check the digits.')
+  if(decimals(lat)<5||decimals(lng)<5)
+    out.push('Fewer than 5 decimal places. Below 5 the error exceeds a metre.')
+  if(fix){
+    const d=hav(fix,{lat,lng})
+    if(d>150) out.push('This point is '+d.toFixed(0)+' m from where the phone is now.')
+  }
+  return out
+}
+
+/* ---------- live GPS ---------- */
+if('geolocation' in navigator){
+  navigator.geolocation.watchPosition(p=>{
+    fix={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy}
+    $('hereLat').textContent=fix.lat.toFixed(6)
+    $('hereLng').textContent=fix.lng.toFixed(6)
+    $('hereAcc').textContent='±'+fix.acc.toFixed(0)+'m'
+    $('vacc').textContent='±'+fix.acc.toFixed(0)+'m'
+    drawVerify()
+  },()=>{},{enableHighAccuracy:true,maximumAge:0,timeout:20000})
+}
+
+/* ---------- tabs ---------- */
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b))
+  document.querySelectorAll('.pane').forEach(p=>p.hidden=true)
+  $('p-'+b.dataset.p).hidden=false
+  if(b.dataset.p==='anchor') fillIds()
+  if(b.dataset.p==='verify') drawVerify()
+})
+
+/* ---------- zone ---------- */
+$('zpaste').addEventListener('input',e=>{
+  const p=parsePair(e.target.value)
+  if(p){ $('zlat').value=p.lat.toFixed(6); $('zlng').value=p.lng.toFixed(6); validateZone() }
+})
+;['zlat','zlng'].forEach(id=>$(id).addEventListener('input',validateZone))
+
+function validateZone(){
+  const lat=parseFloat($('zlat').value), lng=parseFloat($('zlng').value)
+  const m=$('zmsg')
+  if(!$('zlat').value||!$('zlng').value){m.className='msg';return}
+  const probs=checkCoords(lat,lng)
+  m.className='msg show '+(probs.length?'warn':'ok')
+  m.textContent=probs.length?probs.join(' '):'Looks good.'
+}
+
+$('zuse').onclick=()=>{
+  if(!fix){alert('No GPS fix yet.');return}
+  $('zlat').value=fix.lat.toFixed(6); $('zlng').value=fix.lng.toFixed(6)
+  $('zacc').value=Math.round(fix.acc); validateZone()
+}
+
+$('zsave').onclick=()=>{
+  const id=($('zid').value||'').toUpperCase().trim()
+  const lat=parseFloat($('zlat').value), lng=parseFloat($('zlng').value)
+  if(!id||!isFinite(lat)||!isFinite(lng)){alert('Need an id and a coordinate pair.');return}
+  book[id]=book[id]||{}
+  book[id].zone={id,name:$('zname').value.trim(),lat:+lat.toFixed(6),lng:+lng.toFixed(6),
+    radiusM:+$('zrad').value||30, bestAccM:+$('zacc').value||null,
+    source:'gpstest', recordedAt:new Date().toISOString()}
+  dl('json'); bump('zid'); $('zname').value=''; $('zpaste').value=''
+  $('zmsg').className='msg show ok'; $('zmsg').textContent=id+' saved and exported.'
+  fillIds(); drawVerify()
+}
+
+/* ---------- anchor ---------- */
+function fillIds(){
+  const ids=Object.keys(book)
+  $('aid').innerHTML=ids.length?ids.map(i=>'<option>'+i+'</option>').join('')
+    :'<option value="">— save a zone first —</option>'
+}
+$('asave').onclick=()=>{
+  const id=$('aid').value
+  if(!id){alert('Save a zone first.');return}
+  const w=+$('aw').value, h=+$('ah').value
+  const m=$('amsg')
+  if(!w||!h){m.className='msg show bad';m.textContent='Measured width and height are required.';return}
+  if(!$('aname').value.trim()){m.className='msg show bad';m.textContent='Image target name is required.';return}
+  book[id].anchor={
+    targetName:$('aname').value.trim(), shape:$('ashape').value,
+    widthMm:w, heightMm:h, fabricatedPanel:$('afab').value==='true',
+    scanId:$('ascan').value.trim(),
+    offset:{x:+$('ax').value||0, y:+$('ay').value||0, z:+$('az').value||0, yawDeg:+$('ayaw').value||0},
+    surfaceFinish:$('afin').value, repetitive:$('arep').value==='true',
+    photos:$('aphoto').value.trim(), notes:$('anotes').value.trim(),
+    recordedAt:new Date().toISOString()}
+  const warn=[]
+  if($('arep').value==='true') warn.push('Repetitive pattern — detection may be unreliable.')
+  if($('afin').value.startsWith('glossy')) warn.push('Glossy surface — expect glare dropouts.')
+  m.className='msg show '+(warn.length?'warn':'ok')
+  m.textContent=(warn.length?warn.join(' ')+' Consider a fabricated panel. ':'')+id+' anchor saved.'
+  dl('json'); drawVerify()
+}
+
+/* ---------- verify ---------- */
+function drawVerify(){
+  const rows=Object.values(book).filter(b=>b.zone)
+  $('vnone').hidden=rows.length>0
+  let insideNow='—'
+  $('vtb').innerHTML=rows.map(b=>{
+    const z=b.zone, d=fix?hav(fix,z):null, inside=d!==null&&d<=z.radiusM
+    if(inside) insideNow=z.id
+    return '<tr><td>'+z.id+'</td><td class="mono">'+(d===null?'—':d.toFixed(0)+'m')+
+      '</td><td class="mono">'+z.radiusM+'m</td><td class="'+(inside?'in':'out')+'">'+
+      (inside?'inside':'outside')+'</td><td>'+(b.anchor?'✓':'—')+'</td></tr>'
+  }).join('')
+  $('vin').textContent=insideNow
+}
+
+/* ---------- export ---------- */
+function merged(){
+  return Object.values(book).filter(b=>b.zone).map(b=>({
+    ...b.zone, anchor:b.anchor||null}))
+}
+function toJsBlock(){
+  return merged().map(w=>`  {
+    id: '${w.id}',
+    name: ${JSON.stringify(w.name||'')},
+    lat: ${w.lat}, lng: ${w.lng}, radiusM: ${w.radiusM},
+    target: {
+      name: '${w.anchor?.targetName||'TODO'}',
+      shape: '${w.anchor?.shape||'flat'}',
+      widthMm: ${w.anchor?.widthMm||0},
+      heightMm: ${w.anchor?.heightMm||0},
+      fabricatedPanel: ${w.anchor?.fabricatedPanel??false},
+      // model origin relative to target centre, metres
+      offset: {x: ${w.anchor?.offset.x??0}, y: ${w.anchor?.offset.y??0}, z: ${w.anchor?.offset.z??0}, yawDeg: ${w.anchor?.offset.yawDeg??0}},
+      scanId: '${w.anchor?.scanId||''}',
+    },
+    scene: 'scenes/${w.id.toLowerCase()}',
+    durationS: 75,
+    priority: 1,
+  },`).join('\n')
+}
+function dl(kind){
+  const stamp=new Date().toISOString().slice(0,10)
+  const [txt,name,type] = kind==='js'
+    ? ['export const WAYPOINTS = [\n'+toJsBlock()+'\n]\n','waypoints-'+stamp+'.js','text/javascript']
+    : [JSON.stringify(merged(),null,2),'field-record-'+stamp+'.json','application/json']
+  const a=document.createElement('a')
+  a.href=URL.createObjectURL(new Blob([txt],{type})); a.download=name; a.click()
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000)
+}
+$('expjson').onclick=()=>dl('json')
+$('expjs').onclick=()=>dl('js')
+
+function bump(id){
+  const m=$(id).value.match(/^(W-)(\d+)$/i)
+  if(m) $(id).value=m[1].toUpperCase()+String(+m[2]+1).padStart(2,'0')
+}
+fillIds()
+</script>
+</body>
+</html>

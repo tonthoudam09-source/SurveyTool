@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101418">
+<title>Geofence surveyor — Timemachine</title>
+<style>
+  :root{
+    --ink:#0d1117; --paper:#ffffff; --line:#c9d1d9;
+    --dim:#57606a; --ok:#0f6e56; --warn:#9a6200; --bad:#8b1e1e;
+    --band:#101418;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--paper);color:var(--ink);
+    font:400 17px/1.45 system-ui,-apple-system,sans-serif}
+  body{padding:0 0 40px}
+  header{background:var(--band);color:#fff;padding:14px 16px}
+  header h1{margin:0;font-size:17px;font-weight:500;letter-spacing:.02em}
+  header p{margin:2px 0 0;font-size:13px;opacity:.7}
+  main{padding:16px;max-width:640px;margin:0 auto}
+  section{border:1px solid var(--line);border-radius:10px;padding:14px;margin:0 0 16px}
+  h2{margin:0 0 10px;font-size:15px;font-weight:500;letter-spacing:.04em;
+    text-transform:uppercase;color:var(--dim)}
+  .num{font:500 34px/1.1 ui-monospace,SFMono-Regular,Menlo,monospace;
+    letter-spacing:-.01em;word-break:break-all}
+  .lab{font-size:12px;color:var(--dim);letter-spacing:.06em;text-transform:uppercase}
+  .row{display:flex;gap:14px;flex-wrap:wrap}
+  .row>div{flex:1 1 130px}
+  .acc{display:inline-block;padding:3px 10px;border-radius:999px;
+    font:500 14px/1.4 system-ui;margin-top:6px}
+  .acc.g{background:#e1f5ee;color:var(--ok)}
+  .acc.a{background:#faeeda;color:var(--warn)}
+  .acc.b{background:#fcebeb;color:var(--bad)}
+  button{font:500 17px system-ui;padding:15px 18px;border-radius:10px;
+    border:1px solid var(--ink);background:var(--ink);color:#fff;width:100%;
+    margin-top:10px;cursor:pointer}
+  button.sec{background:#fff;color:var(--ink)}
+  button:disabled{opacity:.4}
+  input,select{font:400 17px system-ui;padding:12px;border:1px solid var(--line);
+    border-radius:8px;width:100%;background:#fff;color:var(--ink)}
+  label{display:block;margin:10px 0 0}
+  label span{display:block;font-size:13px;color:var(--dim);margin-bottom:4px}
+  .bar{height:10px;background:#eef1f4;border-radius:999px;overflow:hidden;margin:12px 0 4px}
+  .bar i{display:block;height:100%;background:var(--ink);width:0;transition:width .3s}
+  table{width:100%;border-collapse:collapse;font-size:15px}
+  th,td{text-align:left;padding:9px 6px;border-bottom:1px solid var(--line)}
+  th{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+  td.n{font-family:ui-monospace,Menlo,monospace}
+  .in{color:var(--ok);font-weight:500}
+  .out{color:var(--dim)}
+  .hint{font-size:14px;color:var(--dim);margin:8px 0 0}
+  .alert{background:#fcebeb;color:var(--bad);padding:12px;border-radius:8px;
+    font-size:15px;margin-bottom:16px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Geofence surveyor</h1>
+  <p>Khongjom — capture and verify waypoint coordinates</p>
+</header>
+<main>
+  <div id="err" class="alert" hidden></div>
+
+  <section>
+    <h2>Live position</h2>
+    <div class="row">
+      <div><div class="lab">Latitude</div><div class="num" id="lat">—</div></div>
+      <div><div class="lab">Longitude</div><div class="num" id="lng">—</div></div>
+    </div>
+    <div><span class="acc b" id="acc">waiting for fix</span></div>
+    <p class="hint" id="sat">Stand in the open. Wait until accuracy settles before capturing.</p>
+  </section>
+
+  <section>
+    <h2>Capture waypoint</h2>
+    <label><span>Waypoint id</span><input id="wid" value="W-01" autocapitalize="characters"></label>
+    <label><span>Station name</span><input id="wname" placeholder="Memorial entrance"></label>
+    <label><span>Zone radius (metres)</span><input id="wrad" type="number" value="30" min="5" max="200"></label>
+    <label><span>Reject samples worse than (metres)</span><input id="wgate" type="number" value="15" min="5" max="50"></label>
+    <div class="bar"><i id="prog"></i></div>
+    <div class="hint" id="cnt">0 accepted / 0 seen · target 30 samples over 60 s</div>
+    <button id="go">Start capture</button>
+    <button id="stop" class="sec" hidden>Stop and save</button>
+  </section>
+
+  <section>
+    <h2>Saved waypoints</h2>
+    <div class="hint" id="none">Nothing captured yet.</div>
+    <table id="tbl" hidden>
+      <thead><tr><th>Id</th><th>Distance</th><th>Radius</th><th>State</th></tr></thead>
+      <tbody id="tb"></tbody>
+    </table>
+    <p class="hint">Walk the site with this open to check the zones behave. Each station
+      should read “inside” only where you want its content to load.</p>
+    <button id="exp" class="sec" disabled>Export waypoints.json</button>
+    <button id="clr" class="sec" disabled>Clear all</button>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id)
+const R = 6371000
+const toRad = d => d * Math.PI / 180
+
+function haversine(a, b) {
+  const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng)
+  const h = Math.sin(dLat/2)**2 +
+            Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng/2)**2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+
+let fix = null, saved = [], capturing = false, samples = [], seen = 0, startedAt = 0
+
+if (!('geolocation' in navigator)) {
+  $('err').hidden = false
+  $('err').textContent = 'This browser has no geolocation. Open the page in Chrome.'
+} else if (!window.isSecureContext) {
+  $('err').hidden = false
+  $('err').textContent = 'Page must be served over HTTPS or localhost, or the browser will refuse location access.'
+}
+
+navigator.geolocation.watchPosition(p => {
+  fix = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, t: p.timestamp }
+  render()
+  if (capturing) collect()
+}, e => {
+  $('err').hidden = false
+  $('err').textContent = 'Location unavailable: ' + e.message
+}, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 })
+
+function render() {
+  if (!fix) return
+  $('lat').textContent = fix.lat.toFixed(6)
+  $('lng').textContent = fix.lng.toFixed(6)
+  const a = fix.acc
+  const el = $('acc')
+  el.textContent = '± ' + a.toFixed(1) + ' m'
+  el.className = 'acc ' + (a <= 8 ? 'g' : a <= 20 ? 'a' : 'b')
+  $('sat').textContent = a <= 8
+    ? 'Good enough to capture.'
+    : a <= 20
+      ? 'Usable, but wait — accuracy is still improving.'
+      : 'Too coarse. Move away from walls and tree cover, then wait.'
+  drawTable()
+}
+
+function collect() {
+  seen++
+  const gate = +$('wgate').value || 15
+  if (fix.acc <= gate) samples.push({ ...fix })
+  const secs = (Date.now() - startedAt) / 1000
+  const pct = Math.min(100, Math.max(samples.length / 30, secs / 60) * 100)
+  $('prog').style.width = pct + '%'
+  $('cnt').textContent = samples.length + ' accepted / ' + seen +
+    ' seen · ' + secs.toFixed(0) + ' s elapsed'
+  $('stop').disabled = samples.length < 5
+}
+
+$('go').onclick = () => {
+  capturing = true; samples = []; seen = 0; startedAt = Date.now()
+  $('go').hidden = true; $('stop').hidden = false; $('stop').disabled = true
+}
+
+$('stop').onclick = () => {
+  capturing = false
+  $('go').hidden = false; $('stop').hidden = true
+
+  // Inverse-variance weighting: a ±4 m sample counts far more than a ±12 m one.
+  let wsum = 0, la = 0, ln = 0
+  for (const s of samples) { const w = 1 / (s.acc * s.acc); wsum += w; la += s.lat * w; ln += s.lng * w }
+  const mean = { lat: la / wsum, lng: ln / wsum }
+
+  // Spread tells you how much the readings actually wandered — a more honest
+  // number than the device's own optimistic accuracy estimate.
+  const spread = Math.max(...samples.map(s => haversine(mean, s)))
+
+  saved.push({
+    id: ($('wid').value || 'W-??').toUpperCase().trim(),
+    name: $('wname').value.trim(),
+    lat: +mean.lat.toFixed(6),
+    lng: +mean.lng.toFixed(6),
+    radiusM: +$('wrad').value || 30,
+    samples: samples.length,
+    spreadM: +spread.toFixed(1),
+    bestAccM: +Math.min(...samples.map(s => s.acc)).toFixed(1),
+    capturedAt: new Date().toISOString(),
+  })
+
+  // Auto-export immediately: nothing is stored, so a stray reload must never
+  // cost a walk back across the site.
+  download()
+  bumpId()
+  $('exp').disabled = false; $('clr').disabled = false
+  $('prog').style.width = '0'; $('cnt').textContent = '0 accepted / 0 seen'
+  drawTable()
+}
+
+function bumpId() {
+  const m = $('wid').value.match(/^(W-)(\d+)$/i)
+  if (m) $('wid').value = m[1].toUpperCase() + String(+m[2] + 1).padStart(2, '0')
+  $('wname').value = ''
+}
+
+function drawTable() {
+  $('tbl').hidden = saved.length === 0
+  $('none').hidden = saved.length > 0
+  $('tb').innerHTML = saved.map(w => {
+    const d = fix ? haversine(fix, w) : null
+    const inside = d !== null && d <= w.radiusM
+    return '<tr><td>' + w.id + '</td>' +
+      '<td class="n">' + (d === null ? '—' : d.toFixed(0) + ' m') + '</td>' +
+      '<td class="n">' + w.radiusM + ' m</td>' +
+      '<td class="' + (inside ? 'in' : 'out') + '">' + (inside ? 'inside' : 'outside') + '</td></tr>'
+  }).join('')
+}
+
+function download() {
+  const blob = new Blob([JSON.stringify(saved, null, 2)], { type: 'application/json' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = 'waypoints-' + new Date().toISOString().slice(0, 10) + '.json'
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000)
+}
+
+$('exp').onclick = download
+$('clr').onclick = () => {
+  if (!confirm('Clear all captured waypoints from this session?')) return
+  saved = []; $('exp').disabled = true; $('clr').disabled = true; drawTable()
+}
+</script>
+</body>
+</html>
